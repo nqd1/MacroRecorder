@@ -1,6 +1,4 @@
-# Macro Recorder - Rust Edition 🦀
-
-High-performance macro recorder app giống Jitbit được viết bằng Rust, với khả năng theo dõi global keyboard và mouse events ngay cả khi app mất focus.
+# Macro Recorder - Made with Rust 🦀
 
 ## Tính năng
 
@@ -32,7 +30,6 @@ build_rust.bat
 ### Cách 3: Build executable
 ```bash
 cargo build --release
-# File .exe sẽ ở target/release/macro_recorder.exe
 ```
 
 **Lưu ý**: Khuyến nghị chạy với quyền Administrator để global hooks hoạt động tốt nhất.
@@ -83,25 +80,6 @@ timestamp;event_type;parameters
 - Đây không nên xảy ra với Rust version
 - Nếu có, hãy báo cáo bug với log details
 
-## Tại sao chọn Rust?
-
-### 🚀 **Performance vượt trội**
-- ⚡ **Zero-cost abstractions** - Không overhead runtime
-- 🧠 **Memory efficient** - Tự động quản lý memory, không GC
-- 🎯 **Native speed** - Compile trực tiếp thành machine code
-- 📦 **Single executable** - Không cần runtime dependencies
-
-### 🔒 **An toàn và tin cậy**
-- 🦀 **Memory safety** - Không buffer overflow, use-after-free
-- 🔧 **Type safety** - Compiler catch bugs trước khi chạy
-- 🛡️ **Thread safety** - Không data races
-- 📊 **Predictable performance** - Không GC pauses
-
-### 🎨 **Modern development experience**
-- 🖼️ **egui** - Immediate mode GUI, responsive
-- 📚 **Rich ecosystem** - Cargo package manager
-- 🔄 **Hot reload** - Fast development cycle
-- 📝 **Excellent tooling** - Built-in formatter, linter, docs
 
 ## Phát triển
 
@@ -120,27 +98,17 @@ MacroRecorder/
 └── README.md                   # Documentation
 ```
 
-### Thêm tính năng mới
-1. **Events**: Chỉnh sửa `hooks.rs` để thêm event types mới
-2. **GUI**: Chỉnh sửa `main.rs` để thêm UI components
-3. **Recording**: Chỉnh sửa `recorder.rs` để thêm recording logic
-4. **Playback**: Chỉnh sửa `player.rs` để thêm playback features
 
 ### Development commands
 ```bash
-# Development build với debug info
 cargo run
 
-# Release build tối ưu performance  
 cargo run --release
 
-# Check code quality
 cargo clippy
 
-# Format code
 cargo fmt
 
-# Run tests
 cargo test
 ```
 

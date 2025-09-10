@@ -1,10 +1,9 @@
 use crate::events::{MacroEvent, EventType};
 use std::time::{Duration, Instant};
 use std::thread;
+use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use windows::{
-    core::*,
     Win32::{
-        // Foundation::*,
         UI::Input::KeyboardAndMouse::*,
         UI::WindowsAndMessaging::*,
     },
@@ -26,6 +25,8 @@ pub struct MacroPlayer {
     pause_start: Option<Instant>,
     total_pause_time: Duration,
     playback_speed: f32,
+    stop_signal: Arc<AtomicBool>,
+    playback_thread: Option<thread::JoinHandle<()>>,
 }
 
 impl MacroPlayer {
@@ -38,6 +39,8 @@ impl MacroPlayer {
             pause_start: None,
             total_pause_time: Duration::ZERO,
             playback_speed: 1.0,
+            stop_signal: Arc::new(AtomicBool::new(false)),
+            playback_thread: None,
         }
     }
     
@@ -51,7 +54,6 @@ impl MacroPlayer {
             }
         }
         
-        // Sort events by timestamp
         self.events.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
         
         self.current_position = 0;
@@ -67,19 +69,24 @@ impl MacroPlayer {
     
     pub fn start(&mut self) {
         if !self.events.is_empty() {
+            self.stop();
+            
             self.state = PlayerState::Playing;
             self.current_position = 0;
             self.start_time = Some(Instant::now());
             self.pause_start = None;
             self.total_pause_time = Duration::ZERO;
+            self.stop_signal.store(false, Ordering::Relaxed);
             
-            // Start playback in a separate thread
             let events = self.events.clone();
             let speed = self.playback_speed;
+            let stop_signal = self.stop_signal.clone();
             
-            thread::spawn(move || {
-                Self::play_events(events, speed);
+            let handle = thread::spawn(move || {
+                Self::play_events(events, speed, stop_signal);
             });
+            
+            self.playback_thread = Some(handle);
             
             log::info!("Playback started with {} events at {}x speed", self.events.len(), self.playback_speed);
         }
@@ -104,6 +111,12 @@ impl MacroPlayer {
     }
     
     pub fn stop(&mut self) {
+        self.stop_signal.store(true, Ordering::Relaxed);
+        
+        if let Some(handle) = self.playback_thread.take() {
+            let _ = handle.join();
+        }
+        
         self.state = PlayerState::Stopped;
         if let Some(pause_start) = self.pause_start.take() {
             self.total_pause_time += pause_start.elapsed();
@@ -123,29 +136,43 @@ impl MacroPlayer {
         self.events.len()
     }
     
-    fn play_events(events: Vec<MacroEvent>, speed: f32) {
+    fn play_events(events: Vec<MacroEvent>, speed: f32, stop_signal: Arc<AtomicBool>) {
         if events.is_empty() {
             return;
         }
         
         let start_time = Instant::now();
-        let mut last_event_time = 0.0;
+        let mut _last_event_time = 0.0;
         
-        for (index, event) in events.iter().enumerate() {
-            // Calculate when this event should be played
+        for (_index, event) in events.iter().enumerate() {
+            if stop_signal.load(Ordering::Relaxed) {
+                log::info!("Playback interrupted by stop signal");
+                return;
+            }
+            
             let target_time = Duration::from_secs_f64(event.timestamp / speed as f64);
             let current_time = start_time.elapsed();
             
-            // Wait until it's time to play this event
             if target_time > current_time {
                 let wait_time = target_time - current_time;
-                thread::sleep(wait_time);
+                let sleep_interval = Duration::from_millis(10);
+                let mut remaining = wait_time;
+                
+                while remaining > Duration::ZERO && !stop_signal.load(Ordering::Relaxed) {
+                    let sleep_duration = remaining.min(sleep_interval);
+                    thread::sleep(sleep_duration);
+                    remaining = remaining.saturating_sub(sleep_duration);
+                }
+                
+                if stop_signal.load(Ordering::Relaxed) {
+                    log::info!("Playback interrupted during wait");
+                    return;
+                }
             }
             
-            // Execute the event
             Self::execute_event(event);
             
-            last_event_time = event.timestamp;
+            _last_event_time = event.timestamp;
         }
         
         log::info!("Playback completed");
@@ -288,7 +315,7 @@ impl MacroPlayer {
                 mi: MOUSEINPUT {
                     dx: 0,
                     dy: 0,
-                    mouseData: (delta * 120) as i32 as u32, // WHEEL_DELTA is typically 120
+                    mouseData: (delta * 120) as i32,
                     dwFlags: MOUSEEVENTF_WHEEL,
                     time: 0,
                     dwExtraInfo: 0,
@@ -301,19 +328,16 @@ impl MacroPlayer {
     
     fn key_name_to_vk_code(key_name: &str) -> Option<u16> {
         match key_name {
-            // Letters
             key if key.len() == 1 && key.chars().next().unwrap().is_ascii_lowercase() => {
                 Some(key.to_uppercase().chars().next().unwrap() as u16)
             }
-            // Numbers
             key if key.len() == 1 && key.chars().next().unwrap().is_ascii_digit() => {
                 Some(key.chars().next().unwrap() as u16)
             }
-            // Function keys
             key if key.starts_with('f') && key.len() <= 3 => {
                 if let Ok(num) = key[1..].parse::<u16>() {
                     if num >= 1 && num <= 12 {
-                        Some(0x70 + num - 1) // F1 is 0x70
+                        Some(0x70 + num - 1)
                     } else {
                         None
                     }
@@ -321,7 +345,6 @@ impl MacroPlayer {
                     None
                 }
             }
-            // Special keys
             "space" => Some(VK_SPACE.0),
             "enter" => Some(VK_RETURN.0),
             "backspace" => Some(VK_BACK.0),
@@ -340,7 +363,6 @@ impl MacroPlayer {
             "end" => Some(VK_END.0),
             "page_up" => Some(VK_PRIOR.0),
             "page_down" => Some(VK_NEXT.0),
-            // Symbols
             ";" => Some(0xBA),
             "=" => Some(0xBB),
             "," => Some(0xBC),
@@ -353,7 +375,6 @@ impl MacroPlayer {
             "]" => Some(0xDD),
             "'" => Some(0xDE),
             _ => {
-                // Try to parse vk_XXX format
                 if key_name.starts_with("vk_") {
                     key_name[3..].parse::<u16>().ok()
                 } else {
@@ -361,5 +382,11 @@ impl MacroPlayer {
                 }
             }
         }
+    }
+}
+
+impl Drop for MacroPlayer {
+    fn drop(&mut self) {
+        self.stop();
     }
 }

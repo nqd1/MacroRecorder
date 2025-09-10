@@ -1,7 +1,10 @@
 [package]
 name = "macro_recorder_rust"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
+authors = ["Quy Duc <quyduc1404@gmail.com>"]
+description = "Professional macro recorder and player for Windows"
+license = "MIT"
 
 [[bin]]
 name = "macro_recorder"
@@ -45,3 +48,14 @@ egui_extras = { version = "0.24", features = ["default", "image"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "consoleapi"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

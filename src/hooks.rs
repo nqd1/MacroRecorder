@@ -1,7 +1,5 @@
 use std::sync::{Arc, Mutex, OnceLock};
-// use std::ffi::c_void;
 use windows::{
-    core::*,
     Win32::{
         Foundation::*,
         UI::WindowsAndMessaging::*,
@@ -38,11 +36,9 @@ impl GlobalHooks {
     
     pub fn install(&mut self) -> std::result::Result<(), String> {
         unsafe {
-            // Store global reference for callbacks
             let hooks_ref = GLOBAL_HOOKS.get_or_init(|| Arc::new(Mutex::new(None)));
             *hooks_ref.lock().unwrap() = Some(std::ptr::read(self as *const _));
             
-            // Install keyboard hook
             let hinstance = match GetModuleHandleW(None) {
                 Ok(h) => h,
                 Err(e) => return Err(format!("Failed to get module handle: {}", e)),
@@ -58,7 +54,6 @@ impl GlobalHooks {
                 Err(e) => return Err(format!("Failed to install keyboard hook: {}", e)),
             });
             
-            // Install mouse hook
             self.mouse_hook = Some(match SetWindowsHookExW(
                 WH_MOUSE_LL,
                 Some(mouse_hook_proc),
@@ -77,17 +72,26 @@ impl GlobalHooks {
     
     pub fn uninstall(&mut self) {
         unsafe {
+            if let Some(hooks_ref) = GLOBAL_HOOKS.get() {
+                if let Ok(mut guard) = hooks_ref.try_lock() {
+                    *guard = None;
+                }
+            }
+            
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            
             if let Some(hook) = self.keyboard_hook.take() {
-                let _ = UnhookWindowsHookEx(hook);
+                let result = UnhookWindowsHookEx(hook);
+                if result.is_err() {
+                    log::warn!("Failed to unhook keyboard hook: {:?}", result);
+                }
             }
             
             if let Some(hook) = self.mouse_hook.take() {
-                let _ = UnhookWindowsHookEx(hook);
-            }
-            
-            // Clear global reference
-            if let Some(hooks_ref) = GLOBAL_HOOKS.get() {
-                *hooks_ref.lock().unwrap() = None;
+                let result = UnhookWindowsHookEx(hook);
+                if result.is_err() {
+                    log::warn!("Failed to unhook mouse hook: {:?}", result);
+                }
             }
             
             log::info!("Global hooks uninstalled");
@@ -151,7 +155,6 @@ impl Drop for GlobalHooks {
     }
 }
 
-// Global hook procedures
 unsafe extern "system" fn keyboard_hook_proc(n_code: i32, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
     if n_code >= 0 {
         if let Some(hooks_ref) = GLOBAL_HOOKS.get() {
@@ -160,12 +163,11 @@ unsafe extern "system" fn keyboard_hook_proc(n_code: i32, w_param: WPARAM, l_par
                     let kbd_struct = *(l_param.0 as *const KBDLLHOOKSTRUCT);
                     let is_key_down = w_param.0 == WM_KEYDOWN as usize || w_param.0 == WM_SYSKEYDOWN as usize;
                     
-                    // Skip our own hotkeys to avoid recursion
                     let vk_code = kbd_struct.vkCode;
                     if !(vk_code == VK_CONTROL.0 as u32 || 
-                         (vk_code >= 0x52 && vk_code <= 0x52) || // R
-                         (vk_code >= 0x50 && vk_code <= 0x50) || // P  
-                         (vk_code >= 0x51 && vk_code <= 0x51)) { // Q
+                         (vk_code >= 0x52 && vk_code <= 0x52) ||
+                         (vk_code >= 0x50 && vk_code <= 0x50) ||
+                         (vk_code >= 0x51 && vk_code <= 0x51)) {
                         hooks.handle_keyboard_event(
                             kbd_struct.vkCode,
                             kbd_struct.scanCode,
@@ -225,16 +227,11 @@ unsafe extern "system" fn mouse_hook_proc(n_code: i32, w_param: WPARAM, l_param:
     CallNextHookEx(None, n_code, w_param, l_param)
 }
 
-// Helper function to convert VK codes to readable strings
 fn vk_code_to_string(vk_code: u32) -> String {
     match vk_code {
-        // Letters
         0x41..=0x5A => char::from(vk_code as u8).to_string().to_lowercase(),
-        // Numbers
         0x30..=0x39 => char::from(vk_code as u8).to_string(),
-        // Function keys
         0x70..=0x7B => format!("f{}", vk_code - 0x6F),
-        // Special keys
         val if val == VK_SPACE.0 as u32 => "space".to_string(),
         val if val == VK_RETURN.0 as u32 => "enter".to_string(),
         val if val == VK_BACK.0 as u32 => "backspace".to_string(),
@@ -253,7 +250,6 @@ fn vk_code_to_string(vk_code: u32) -> String {
         val if val == VK_END.0 as u32 => "end".to_string(),
         val if val == VK_PRIOR.0 as u32 => "page_up".to_string(),
         val if val == VK_NEXT.0 as u32 => "page_down".to_string(),
-        // Symbols
         0xBA => ";".to_string(),
         0xBB => "=".to_string(),
         0xBC => ",".to_string(),

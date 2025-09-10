@@ -9,17 +9,14 @@ mod events;
 use hooks::GlobalHooks;
 use recorder::MacroRecorder;
 use player::MacroPlayer;
-// use events::MacroEvent;
 
 fn main() -> Result<(), eframe::Error> {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    env_logger::init();
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([900.0, 600.0])
             .with_min_inner_size([800.0, 500.0]),
-            // Icon disabled for now
-            // .with_icon(eframe::icon_data::from_png_bytes(&[]).unwrap_or_default())
         ..Default::default()
     };
 
@@ -70,11 +67,9 @@ impl MacroApp {
         let recorder = Arc::new(Mutex::new(MacroRecorder::new()));
         let player = Arc::new(Mutex::new(MacroPlayer::new()));
         
-        // Setup callbacks
         let _hooks_clone = hooks.clone();
         let recorder_clone = recorder.clone();
         
-        // Setup hooks callback
         {
             let mut hooks_guard = hooks.lock().unwrap();
             hooks_guard.set_callback(Box::new(move |event| {
@@ -116,13 +111,11 @@ impl MacroApp {
             self.events_recorded = 0;
             self.recording_time = 0.0;
             
-            // Clear previous recording
             if let Ok(mut recorder) = self.recorder.lock() {
                 recorder.clear();
                 recorder.start();
             }
             
-            // Install hooks
             let install_result = if let Ok(mut hooks) = self.hooks.lock() {
                 hooks.install()
             } else {
@@ -179,7 +172,6 @@ impl MacroApp {
     fn stop_current_action(&mut self) {
         match self.state {
             AppState::Recording | AppState::RecordingPaused => {
-                // Stop recording
                 if let Ok(mut hooks) = self.hooks.lock() {
                     hooks.uninstall();
                 }
@@ -192,8 +184,6 @@ impl MacroApp {
                 self.state = AppState::Idle;
                 self.add_log(format!("🛑 Recording stopped - {} events captured", self.events_recorded));
                 
-                // Auto-save dialog would go here
-                // For now, just suggest manual save
                 self.add_log("💾 Use 'Save As' to save your recording".to_string());
             }
             AppState::Playing | AppState::PlayingPaused => {
@@ -260,7 +250,6 @@ impl MacroApp {
 
 impl eframe::App for MacroApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Handle global hotkeys
         ctx.input(|i| {
             if i.modifiers.ctrl {
                 if i.key_pressed(egui::Key::R) {
@@ -273,7 +262,6 @@ impl eframe::App for MacroApp {
             }
         });
         
-        // Update statistics
         if let Ok(recorder) = self.recorder.lock() {
             self.events_recorded = recorder.get_events().len();
             self.recording_time = recorder.get_duration();
@@ -283,12 +271,10 @@ impl eframe::App for MacroApp {
             self.events_played = player.get_current_position();
         }
         
-        // Top panel with controls
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("📁 Open .mcr").clicked() {
-                        // Simplified file loading - use demo.mcr for now
                         self.load_recording("demo.mcr");
                         ui.close_menu();
                     }
@@ -305,7 +291,10 @@ impl eframe::App for MacroApp {
                     ui.separator();
                     
                     if ui.button("🚪 Exit").clicked() {
+                        self.stop_current_action();
+                        
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        ui.close_menu();
                     }
                 });
                 
@@ -320,7 +309,6 @@ impl eframe::App for MacroApp {
                 });
                 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // Status indicator
                     let (color, text) = match self.state {
                         AppState::Idle => (egui::Color32::GRAY, "⚪ Idle"),
                         AppState::Recording => (egui::Color32::RED, "🔴 Recording"),
@@ -334,10 +322,8 @@ impl eframe::App for MacroApp {
             });
         });
         
-        // Control panel
         egui::TopBottomPanel::top("controls").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                // Recording controls
                 let can_record = matches!(self.state, AppState::Idle);
                 let can_pause = matches!(self.state, AppState::Recording | AppState::RecordingPaused | AppState::Playing | AppState::PlayingPaused);
                 let can_stop = !matches!(self.state, AppState::Idle);
@@ -366,7 +352,6 @@ impl eframe::App for MacroApp {
                 
                 ui.separator();
                 
-                // Statistics
                 ui.label(format!("📊 Events: {}", self.events_recorded));
                 if self.recording_time > 0.0 {
                     ui.label(format!("⏱️ Time: {:.1}s", self.recording_time));
@@ -380,7 +365,6 @@ impl eframe::App for MacroApp {
             });
         });
         
-        // Bottom panel for hotkeys info
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label("🔥 Global Hotkeys:");
@@ -392,7 +376,6 @@ impl eframe::App for MacroApp {
             });
         });
         
-        // Main content area - Log
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false; 2])
@@ -402,7 +385,6 @@ impl eframe::App for MacroApp {
                     ui.separator();
                     
                     for message in &self.log_messages {
-                        // Color code different types of messages
                         let color = if message.contains("❌") {
                             egui::Color32::RED
                         } else if message.contains("🔴") || message.contains("▶️") {
@@ -426,14 +408,24 @@ impl eframe::App for MacroApp {
                 });
         });
         
-        // Request repaint for smooth updates
         ctx.request_repaint();
     }
     
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        // Cleanup hooks on exit
+        log::info!("Application shutting down - performing cleanup");
+        
+        self.stop_current_action();
+        
+        if let Ok(mut player) = self.player.lock() {
+            player.stop();
+        }
+        
         if let Ok(mut hooks) = self.hooks.lock() {
             hooks.uninstall();
         }
+        
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        
+        log::info!("Application cleanup completed");
     }
 }
