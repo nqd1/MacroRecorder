@@ -1,0 +1,47 @@
+[package]
+name = "macro_recorder_rust"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "macro_recorder"
+path = "src/main.rs"
+
+[dependencies]
+# GUI Framework - egui minimal
+eframe = { version = "0.24", default-features = false, features = [
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use glow renederer (OpenGL ES 2.0 / OpenGL 3.2).
+] }
+egui = "0.24"
+
+# Windows API bindings - minimal
+windows = { version = "0.51", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging", 
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_LibraryLoader",
+] }
+
+# Serialization - minimal
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Time handling
+chrono = { version = "0.4" }
+
+# Error handling
+anyhow = "1.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.3"
+
+# File dialogs
+rfd = "0.14"
+
+# Additional egui features
+egui_extras = { version = "0.24", features = ["default", "image"] }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "consoleapi"] }
