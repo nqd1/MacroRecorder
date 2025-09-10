@@ -1,0 +1,26 @@
+# Binaries
+/target/
+/debug/
+/release/
+
+# Cargo specific
+**/*.rs.bk
+Cargo.lock
+
+# Build artifacts
+*.rlib
+*.rmeta
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.sw?
+*.bak
+*.tmp
+
+# OS generated files
+.DS_Store
+Thumbs.db
