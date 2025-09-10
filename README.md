@@ -1,60 +1,56 @@
 # Macro Recorder - Made with Rust 🦀
 
-## Tính năng
+A powerful macro recording and playback application built with Rust, featuring global hooks and precise timing control.
 
-- ✅ **Global Hooks**: Sử dụng Windows API để hook events toàn cục
-- ✅ **Recording**: Ghi lại mouse movements, clicks, keyboard input
-- ✅ **Playback**: Phát lại macro với timing chính xác
+## Features
+
+- ✅ **Global Hooks**: Uses Windows API for system-wide event hooking
+- ✅ **Recording**: Captures mouse movements, clicks, and keyboard input
+- ✅ **Playback**: Replays macros with accurate timing
 - ✅ **Hotkeys**: Ctrl+R (Record), Ctrl+P (Pause/Resume), Ctrl+Q (Stop)
-- ✅ **Pause/Resume**: Tạm dừng và tiếp tục recording/playback
-- ✅ **File Format**: Lưu dưới dạng .mcr (text format, dễ đọc)
+- ✅ **Pause/Resume**: Pause and resume recording/playback functionality
+- ✅ **File Format**: Saves as macro files (human-readable text format, .mcr for short)
 
-## Yêu cầu hệ thống
+## System Requirements
 
 - Windows 10/11
-- Rust 1.70+ (để build từ source)
-- Quyền Administrator (khuyến nghị)
+- Rust 1.70+ (for building from source)
+- Administrator privileges (recommended)
 
-## Cài đặt và chạy
+## Installation & Running
 
-### Cách 1: Build và chạy trực tiếp
+### Method 1: Build and run directly
 ```bash
 cargo run --release
 ```
-
-### Cách 2: Dùng build script
-```bash
-build_rust.bat
-```
-
-### Cách 3: Build executable
+### Method 2: Build executable
 ```bash
 cargo build --release
 ```
 
-**Lưu ý**: Khuyến nghị chạy với quyền Administrator để global hooks hoạt động tốt nhất.
+**Note**: Running with Administrator privileges is recommended for optimal global hook functionality.
 
-## Cách sử dụng
+## Usage
 
 ### Recording
-1. Click "● Record" hoặc nhấn `Ctrl+R`
-2. Thực hiện các thao tác mouse/keyboard muốn ghi lại
-3. Nhấn `Ctrl+P` để tạm dừng/tiếp tục
-4. Nhấn `Ctrl+Q` để dừng và lưu file
+1. Click "● Record" button or press `Ctrl+R`
+2. Perform the mouse/keyboard actions you want to record
+3. Press `Ctrl+P` to pause/resume recording
+4. Press `Ctrl+Q` to stop and save the macro file
 
 ### Playback
-1. Click "▶ Play" hoặc mở file .mcr
-2. Macro sẽ được phát lại với timing chính xác
-3. Sử dụng `Ctrl+P` để tạm dừng, `Ctrl+Q` để dừng
+1. Click "▶ Play" button or open a .mcr file
+2. The macro will be replayed with accurate timing
+3. Use `Ctrl+P` to pause/resume, `Ctrl+Q` to stop
 
-### Hotkeys toàn cục
-- `Ctrl+R`: Bắt đầu recording
-- `Ctrl+P`: Tạm dừng/tiếp tục (khi đang record/play)
-- `Ctrl+Q`: Dừng session hiện tại
+### Global Hotkeys
+- `Ctrl+R`: Start recording
+- `Ctrl+P`: Pause/resume (during recording or playback)
+- `Ctrl+Q`: Stop current session
 
-## File format
+## File Format
 
-File .mcr sử dụng format text đơn giản:
+The .mcr files use a simple text format:
 ```
 timestamp;event_type;parameters
 0.000000;KDOWN;char=h
@@ -66,24 +62,19 @@ timestamp;event_type;parameters
 
 ## Troubleshooting
 
-### Global hooks không hoạt động
-- Chạy với quyền Administrator
-- Kiểm tra antivirus không block ứng dụng
-- Đảm bảo không có app khác đang hook global events
+### Global hooks not working
+- Run the application with Administrator privileges
+- Check that antivirus software isn't blocking the application
+- Ensure no other applications are hooking global events
 
-### Build thất bại
-- Cài đặt Rust từ https://rustup.rs/
-- Đảm bảo có Visual Studio Build Tools hoặc MinGW
-- Chạy `cargo update` để cập nhật dependencies
-
-### App không responsive
-- Đây không nên xảy ra với Rust version
-- Nếu có, hãy báo cáo bug với log details
+### Build failures
+- ~~mf do you even have rust~~
+- Try to install [Rust](https://www.rust-lang.org/tools/install) and build the project again
 
 
-## Phát triển
+## Development
 
-### Cấu trúc dự án
+### Project Structure
 ```
 MacroRecorder/
 ├── src/
@@ -93,25 +84,50 @@ MacroRecorder/
 │   ├── recorder.rs             # Recording logic
 │   └── player.rs               # Playback logic
 ├── Cargo.toml                  # Rust project configuration
-├── build_rust.bat              # Build helper script
 ├── demo.mcr                    # Demo macro file
 └── README.md                   # Documentation
 ```
 
 
-### Development commands
+### Development Commands
 ```bash
+# Run in debug mode
 cargo run
 
+# Run optimized build
 cargo run --release
 
+# Run linter
 cargo clippy
 
+# Format code
 cargo fmt
 
+# Run tests
 cargo test
 ```
 
 ## License
 
 MIT License - Free to use and modify.
+
+
+## FAQ
+
+### Why Rust?
+I tried python and pynput, but it was slow ~~and i dont know how to implement Windows hooks in python~~. Also, Rust also have a GUI framework, so i can make a GUI for this project. C++ GUI on the other hand, is too complex.
+
+### How does this things work?
+
+Using Windows API to hook global events, and then record the events and save them to a file. Workflow is as follows:
+1. User click "Record" button or press `Ctrl+R`
+2. The application will hook global events using `SetWindowsHookExA` and `SetWindowsHookExW`
+3. The application will record the events (with function `GetAsyncKeyState` and `GetAsyncKeyStateEx`) and save them to a file using `WriteFile`
+4. The application will save the file to a folder which the user can choose.
+
+### Can this run on other OS?
+~~Do they have Windows API? No they don't (right?).~~
+<br/>The answer is no.
+
+### Why do I make this?
+My Macro Recorder free trial ran out.
